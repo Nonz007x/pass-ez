@@ -20,3 +20,8 @@
 
 # Go workspace file
 go.work
+
+# Others
+*.json
+*.jenc
+*.params
