@@ -3,7 +3,9 @@ package utils
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
+	"encoding/json"
 
 	consts "github.com/spf13/myapp/constants"
 )
@@ -31,41 +33,9 @@ func EasyMode() {
 			createFile()
 
 		case "2":
-			reader := bufio.NewReader(os.Stdin)
-
-			fileName, err := getFileName(reader)
-			if err != nil {
-				fmt.Println(err)
-				continue
-			}
-
-			service, err := getInput(reader, "Enter service: ")
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			username, err := getInput(reader, "Enter username: ")
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			password, err := getPassword()
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-
-			if err := AddPassword(fileName, service, username, password); err != nil {
-				fmt.Println(err)
-				continue
-			}
-
-			WipeData(password)
-
-			fmt.Printf("New credential added successfully to file \"%s\".\n", fileName)
+			addPassword()
 
 		case "3":
-
 
 		case "4":
 			decryptFile()
@@ -116,12 +86,19 @@ func createFile() {
 	}
 	defer WipeData(key)
 
-	if err := CreateFileAndEncrypt(key, fileName); err != nil {
+	iv, err := GenerateIV()
+	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	SavePBKDF2Params(fileName+consts.PARAMS_FILE_EXT, salt, consts.DEFAULT_ITERATION, consts.DEFAULT_KEY_LEN)
 
+	header, err := CreateHeader(salt, consts.DEFAULT_ITERATION, len(key), iv)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	EncryptFile(key, iv, header, fileName+consts.ENC_FILE_EXT)
 	fmt.Printf("New file \"%s\" created successfully\n", fileName)
 }
 
@@ -144,7 +121,20 @@ func decryptFile() {
 	}
 	defer WipeData(password)
 
-	salt, iteration, keyLength, err := RetrievePBKDF2Params(fileName + consts.PARAMS_FILE_EXT)
+	file, err := os.OpenFile(fileName+consts.ENC_FILE_EXT, os.O_RDWR, 0644)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer file.Close()
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		fmt.Printf("error reading file \"%s\": %v\n", fileName+consts.ENC_FILE_EXT, err)
+		return
+	}
+
+	iteration, keyLength, salt, iv, _, err := ParseHeader(data)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -162,8 +152,107 @@ func decryptFile() {
 	}
 	defer WipeData(key)
 
-	if err := DecryptFile(key, fileName+consts.ENC_FILE_EXT); err != nil {
+	if err := DecryptFile(key, iv, fileName+consts.ENC_FILE_EXT); err != nil {
 		fmt.Println(err)
 		return
 	}
+}
+
+func addPassword() {
+	reader := bufio.NewReader(os.Stdin)
+
+	fileName, err := getFileName(reader)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	serviceName, err := getInput(reader, "Enter service: ")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	identifier, err := getInput(reader, "Enter identifier: ")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	password, err := getPassword()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer WipeData(password)
+	
+	fullFileName := fileName + ".json"
+	file, err := OpenExistingFile(fullFileName)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer file.Close()
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		fmt.Printf("error reading file \"%s\": %v", fullFileName, err)
+		return
+	}
+
+	var services []consts.Service
+	if len(data) > 0 {
+		err = json.Unmarshal(data, &services)
+		if err != nil {
+			fmt.Printf("error unmarshaling data from file \"%s\": %v", fullFileName, err)
+			return
+		}
+	}
+
+	var foundService *consts.Service
+	for i, service := range services {
+		if service.ServiceName == serviceName {
+			foundService = &services[i]
+			break
+		}
+	}
+
+	if foundService != nil {
+		newCredential := consts.Credential{
+			Identifier: identifier,
+			Password:   password,
+		}
+		foundService.Credentials = append(foundService.Credentials, newCredential)
+	} else {
+
+		newService := consts.Service{
+			ServiceName: serviceName,
+			Credentials: []consts.Credential{
+				{
+					Identifier: identifier,
+					Password:   password,
+				},
+			},
+		}
+		services = append(services, newService)
+	}
+
+	updatedData, err := json.Marshal(services)
+	if err != nil {
+		fmt.Printf("error marshaling data: %v", err)
+		return 
+	}
+
+	file, err = os.OpenFile(fullFileName, os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		fmt.Printf("error opening file \"%s\" for writing: %v", fullFileName, err)
+		return 
+	}
+	defer file.Close()
+
+	_, err = file.Write(updatedData)
+	if err != nil {
+		fmt.Printf("error writing data to file \"%s\": %v", fullFileName, err)
+		return 
+	}
+
+	fmt.Printf("New credential added successfully to file \"%s\".\n", fullFileName)
 }
