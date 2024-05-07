@@ -3,18 +3,18 @@ package utils
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
+	"golang.org/x/term"
 	"os"
 	"strings"
-
-	"golang.org/x/term"
 )
 
 const INT_SIZE int = 4
 
 func getFileName(reader *bufio.Reader) (string, error) {
 	for {
-		fmt.Print("Enter file name without extension (type 'cancel' to exit): ")
+		fmt.Print("Enter file name (type 'cancel' to exit): ")
 
 		input, err := reader.ReadString('\n')
 		if err != nil {
@@ -50,18 +50,38 @@ func getInput(reader *bufio.Reader, prompt string) (string, error) {
 // It is recommended to securely destroy
 // the password after use by overwriting it (use "WipeData" function),
 // as password data should not remain in memory longer than necessary.
-func getPassword() ([]byte, error) {
+func getSecret(confirmation bool) ([]byte, error) {
 	fmt.Print("Enter password: ")
 
+	// Read the password securely (without echoing) from the standard input
 	fd := int(os.Stdin.Fd())
-
 	password, err := term.ReadPassword(fd)
 	if err != nil {
 		return nil, fmt.Errorf("error reading password: %v", err)
 	}
 
+	// Trim whitespace from the entered password
 	password = bytes.TrimSpace(password)
+
 	fmt.Println()
+
+	if confirmation {
+
+		fmt.Print("Confirm password: ")
+
+		confirmPassword, err := term.ReadPassword(fd)
+		if err != nil {
+			return nil, fmt.Errorf("error reading confirmed password: %v", err)
+		}
+
+		confirmPassword = bytes.TrimSpace(confirmPassword)
+
+		fmt.Println()
+
+		if !bytes.Equal(password, confirmPassword) {
+			return nil, errors.New("passwords do not match")
+		}
+	}
 
 	return password, nil
 }

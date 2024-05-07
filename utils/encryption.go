@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -10,20 +11,27 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"golang.org/x/crypto/pbkdf2"
 )
 
 const (
-	headerLengthField = 1
-	saltLengthField   = 1
-	keyLengthField    = 1
-	iterationSize     = 4
-	minHeaderLength   = 55
-	maxHeaderLength   = 87
-	minSaltLength     = 32
-	maxSaltLength     = 64
+	headerLenField  = 1
+	saltLenField    = 1
+	keyLenField     = 1
+	iterationSize   = 4
+	minHeaderLen    = 55
+	maxHeaderLen    = 87
+	minSaltLen      = 32
+	maxSaltLen      = 64
+	magicNumbersLen = 4
 )
+
+func magicNumbers() []byte {
+	return []byte{69, 115, 97, 110}
+}
 
 // sensitive
 func DeriveKey(password []byte, salt []byte, iteration int, keyLength int) ([]byte, error) {
@@ -59,9 +67,12 @@ func GenerateIV() ([]byte, error) {
 // sensitive
 func EncryptFile(key []byte, iv []byte, header []byte, fullFileName string) error {
 
-	file, err := OpenExistingFile(fullFileName)
+	file, err := os.OpenFile(fullFileName, os.O_RDWR, 0644)
 	if err != nil {
-		return err
+		if os.IsNotExist(err) {
+			return fmt.Errorf("error: file \"%s\" does not exist", fullFileName)
+		}
+		return fmt.Errorf("error opening file \"%s\": %v", fullFileName, err)
 	}
 	defer file.Close()
 
@@ -72,22 +83,33 @@ func EncryptFile(key []byte, iv []byte, header []byte, fullFileName string) erro
 
 	encryptedData, err := EncryptAES(key, iv, header, string(data))
 	if err != nil {
-		return err
+		return fmt.Errorf("error encrypting data: %v", err)
 	}
 
-	file, err = os.OpenFile(fullFileName, os.O_WRONLY|os.O_TRUNC, 0644)
+	err = file.Truncate(0)
 	if err != nil {
-		return fmt.Errorf("error opening file \"%s\" for writing: %v", fullFileName, err)
+		return fmt.Errorf("error truncating file \"%s\": %v", fullFileName, err)
 	}
-	defer file.Close()
+
+	_, err = file.Seek(0, io.SeekStart)
+	if err != nil {
+		return fmt.Errorf("error seeking to start of file \"%s\": %v", fullFileName, err)
+	}
 
 	_, err = file.Write(encryptedData)
 	if err != nil {
 		return fmt.Errorf("error writing data to file \"%s\": %v", fullFileName, err)
 	}
 
-	fmt.Println(encryptedData)
+	file.Close()
 
+	newFileName := fullFileName + ENC_FILE_EXT
+	err = os.Rename(fullFileName, newFileName)
+	if err != nil {
+		return fmt.Errorf("error renaming file \"%s\" to \"%s\": %v", fullFileName, newFileName, err)
+	} else {
+		fmt.Println(newFileName)
+	}
 	return nil
 }
 
@@ -111,8 +133,10 @@ func DecryptFile(key []byte, iv []byte, fullFileName string) error {
 		return errors.New("ciphertext is too short")
 	}
 
-	headerLength := data[0]
-	encryptedData := data[headerLength:]
+	encryptedData, err := RemoveHeader(data)
+	if err != nil {
+		return err
+	}
 
 	decryptedData, err := DecryptAES(key, iv, encryptedData)
 	if err != nil {
@@ -120,14 +144,27 @@ func DecryptFile(key []byte, iv []byte, fullFileName string) error {
 	}
 	defer WipeData(decryptedData)
 
-	file, err = os.OpenFile(fullFileName, os.O_WRONLY|os.O_TRUNC, 0644)
+	err = file.Truncate(0)
 	if err != nil {
-		return fmt.Errorf("error opening file \"%s\" for writing: %v", fullFileName, err)
+		return fmt.Errorf("error truncating file \"%s\": %v", fullFileName, err)
+	}
+
+	_, err = file.Seek(0, io.SeekStart)
+	if err != nil {
+		return fmt.Errorf("error seeking to start of file \"%s\": %v", fullFileName, err)
 	}
 
 	_, err = file.Write(decryptedData)
 	if err != nil {
 		return fmt.Errorf("error writing data to file \"%s\": %v", fullFileName, err)
+	}
+
+	file.Close()
+
+	decryptedFileName := strings.TrimSuffix(fullFileName, filepath.Ext(fullFileName))
+	err = os.Rename(fullFileName, decryptedFileName)
+	if err != nil {
+		return fmt.Errorf("error renaming file \"%s\" to \"%s\": %v", fullFileName, decryptedFileName, err)
 	}
 
 	return nil
@@ -167,15 +204,15 @@ func DecryptAES(key []byte, iv []byte, ciphertextBytes []byte) ([]byte, error) {
 	}
 
 	if len(iv) != block.BlockSize() {
-    return nil, fmt.Errorf("invalid IV length. Expected %d, got %d", block.BlockSize(), len(iv))
+		return nil, fmt.Errorf("invalid IV length. Expected %d, got %d", block.BlockSize(), len(iv))
 	}
 
-	defer func() {
-    if r := recover(); r != nil {
-			fmt.Printf("Recovered from panic: %v\n", r)
-			
-    }
-	}()
+	// defer func() {
+	// 	if r := recover(); r != nil {
+	// 		fmt.Printf("Recovered from panic: %v\n", r)
+
+	// 	}
+	// }()
 	mode := cipher.NewCBCDecrypter(block, iv)
 
 	mode.CryptBlocks(ciphertextBytes, ciphertextBytes)
@@ -217,9 +254,10 @@ func UnpadPKCS7(data []byte) ([]byte, error) {
 }
 
 func CreateHeader(salt []byte, iteration int, keyLength int, iv []byte) ([]byte, error) {
+
 	saltLength := len(salt)
 	ivLength := len(iv)
-	headerLength := headerLengthField + saltLengthField + keyLengthField +
+	headerLength := headerLenField + saltLenField + keyLenField +
 		iterationSize + saltLength + ivLength
 
 	if headerLength > 255 {
@@ -229,47 +267,75 @@ func CreateHeader(salt []byte, iteration int, keyLength int, iv []byte) ([]byte,
 	header := make([]byte, headerLength)
 
 	header[0] = byte(headerLength)
-
 	header[1] = byte(saltLength)
-
 	header[2] = byte(keyLength)
 
 	binary.BigEndian.PutUint32(header[3:7], uint32(iteration))
 
-	offsetSalt := headerLengthField + saltLengthField + keyLengthField + iterationSize
+	offsetSalt := headerLenField + saltLenField + keyLenField + iterationSize
 	offsetIV := offsetSalt + saltLength
 
 	copy(header[offsetSalt:offsetSalt+saltLength], salt)
 	copy(header[offsetIV:offsetIV+ivLength], iv)
 
-	return header, nil
+	magicNumbers := magicNumbers()
+	return append(magicNumbers, header...), nil
 }
 
 func ParseHeader(cipherText []byte) (int, int, []byte, []byte, []byte, error) {
 
-	headerLength := int(cipherText[0])
+	if !IsEncrypted(cipherText) {
+		return 0, 0, nil, nil, nil, errors.New("file is unencrypted")
+	}
 
-	header := cipherText[:headerLength]
-
-	if len(header) < minHeaderLength || len(header) > maxHeaderLength {
+	if len(cipherText) < magicNumbersLen {
 		return 0, 0, nil, nil, nil, errors.New("invalid header length")
 	}
+
+	headerLength := int(cipherText[magicNumbersLen])
+
+	if headerLength < minHeaderLen || headerLength > maxHeaderLen {
+		return 0, 0, nil, nil, nil, errors.New("invalid header length")
+	}
+
+	header := cipherText[magicNumbersLen : magicNumbersLen+headerLength]
 
 	saltLength := int(header[1])
 	keyLength := int(header[2])
 
-	if saltLength < minSaltLength || saltLength > maxSaltLength {
+	if saltLength < minSaltLen || saltLength > maxSaltLen {
 		return 0, 0, nil, nil, nil, errors.New("invalid salt length")
 	}
 
 	iteration := int(binary.BigEndian.Uint32(header[3:7]))
 
-	offsetSalt := headerLengthField + saltLengthField + keyLengthField + iterationSize
+	offsetSalt := headerLenField + saltLenField + keyLenField + iterationSize
 	offsetIV := offsetSalt + saltLength
 
 	salt := header[offsetSalt : offsetSalt+saltLength]
-	iv := header[offsetIV:headerLength]
-	encryptedData := cipherText[headerLength:]
+	iv := header[offsetIV : offsetIV+(headerLength-offsetIV)]
+
+	encryptedData := cipherText[magicNumbersLen+headerLength:]
 
 	return iteration, keyLength, salt, iv, encryptedData, nil
+}
+
+func IsEncrypted(data []byte) bool {
+	return bytes.Equal(data[:magicNumbersLen], magicNumbers())
+}
+
+func RemoveHeader(cipherText []byte) ([]byte, error) {
+	if len(cipherText) <= magicNumbersLen {
+		return nil, fmt.Errorf("invalid cipherText: too short to contain header and magic numbers")
+	}
+
+	headerLength := int(cipherText[magicNumbersLen])
+
+	if len(cipherText) <= magicNumbersLen+headerLength {
+		return nil, fmt.Errorf("invalid header length: exceeds cipherText length")
+	}
+
+	encryptedData := cipherText[magicNumbersLen+headerLength:]
+
+	return encryptedData, nil
 }
