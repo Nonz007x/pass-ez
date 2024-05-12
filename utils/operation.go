@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 )
 
 func EasyMode() {
@@ -13,7 +14,7 @@ func EasyMode() {
 
 	for {
 		fmt.Println()
-		fmt.Println("(1) ")
+		fmt.Println("(1) delete an exist password")
 		fmt.Println("(2) add a new password")
 		fmt.Println("(3) encrypt a file")
 		fmt.Println("(4) decrypt a file")
@@ -30,7 +31,7 @@ func EasyMode() {
 
 		switch choice {
 		case "1":
-
+			choice_DeletePassword()
 		case "2":
 			choice_AddPassword()
 
@@ -106,7 +107,7 @@ func choice_EncryptFile() {
 		return
 	}
 
-	fmt.Printf("New file \"%s\" created successfully\n", fileName)
+	fmt.Printf("File \"%s\" encrypted successfully\n", fileName)
 }
 
 func choice_DecryptFile() {
@@ -196,33 +197,33 @@ func choice_AddPassword() {
 	defer WipeData(data)
 
 	var (
-		key []byte
-		iv []byte
-		salt []byte
-		iteration int
-		keyLength int
+		key           []byte
+		iv            []byte
+		salt          []byte
+		iteration     int
+		keyLength     int
 		encryptedData []byte
 		decryptedData []byte
 	)
 
 	encyptedFlag := IsEncrypted(data[:magicNumbersLen])
-	
+
 	if encyptedFlag {
 		fmt.Println("File is encrypted. Please enter password.")
-		
+
 		password, err := getSecret(false)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
 		defer WipeData(password)
-		
+
 		iteration, keyLength, salt, iv, encryptedData, err = ParseHeader(data)
 		if err != nil {
 			fmt.Printf("Error decrypting file: %v\n", err)
 			return
 		}
-		
+
 		key, err = DeriveKey(
 			password,
 			salt,
@@ -252,6 +253,8 @@ func choice_AddPassword() {
 		return
 	}
 
+	serviceName = strings.ToLower(serviceName)
+
 	identifier, err := getInput(reader, "Enter identifier: ")
 	if err != nil {
 		fmt.Printf("Error getting identifier: %v\n", err)
@@ -273,6 +276,9 @@ func choice_AddPassword() {
 			return
 		}
 	}
+	defer func() {
+		services = nil
+	}()
 
 	var foundService *Service
 	for i, service := range services {
@@ -281,22 +287,25 @@ func choice_AddPassword() {
 			break
 		}
 	}
+	defer func() {
+		foundService = nil
+	}()
 
 	newCredential := Credential{
 		Identifier: identifier,
 		Password:   password,
 	}
-	
+
 	if foundService != nil {
 		foundService.Credentials = append(foundService.Credentials, newCredential)
-		} else {
-			newService := Service{
-				ServiceName: serviceName,
-				Credentials: []Credential{newCredential},
+	} else {
+		newService := Service{
+			ServiceName: serviceName,
+			Credentials: []Credential{newCredential},
 		}
 		services = append(services, newService)
 	}
-	
+
 	updatedData, err := json.Marshal(services)
 	if err != nil {
 		fmt.Printf("Error marshaling data: %v\n", err)
@@ -315,7 +324,7 @@ func choice_AddPassword() {
 			return
 		}
 	}
-	
+
 	err = file.Truncate(0)
 	if err != nil {
 		fmt.Printf("Error truncating file \"%s\": %v\n", fileName, err)
@@ -333,14 +342,183 @@ func choice_AddPassword() {
 		fmt.Printf("Error writing data to file \"%s\": %v\n", fileName, err)
 		return
 	}
-	
-	
+
 	fmt.Printf("New credential added successfully to file \"%s\".\n", fileName)
+}
+
+func choice_DeletePassword() {
+	reader := bufio.NewReader(os.Stdin)
+
+	fileName, err := getFileName(reader)
+	if err != nil {
+		fmt.Printf("Error getting file name: %v\n", err)
+		return
+	}
+
+	file, err := os.OpenFile(fileName, os.O_RDWR, 0644)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Printf("File \"%s\" does not exist\n", fileName)
+			return
+		} else {
+			fmt.Printf("Error opening file \"%s\": %v\n", fileName, err)
+			return
+		}
+	}
+	defer file.Close()
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		fmt.Printf("Error reading file \"%s\": %v\n", fileName, err)
+		return
+	}
+	defer WipeData(data)
+
+	var (
+		key           []byte
+		iv            []byte
+		salt          []byte
+		iteration     int
+		keyLength     int
+		encryptedData []byte
+		decryptedData []byte
+	)
+
+	encyptedFlag := IsEncrypted(data[:magicNumbersLen])
+
+	if encyptedFlag {
+		fmt.Println("File is encrypted. Please enter password.")
+
+		password, err := getSecret(false)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		defer WipeData(password)
+
+		iteration, keyLength, salt, iv, encryptedData, err = ParseHeader(data)
+		if err != nil {
+			fmt.Printf("Error decrypting file: %v\n", err)
+			return
+		}
+
+		key, err = DeriveKey(
+			password,
+			salt,
+			iteration,
+			keyLength,
+		)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		defer WipeData(key)
+
+		decryptedData, err = DecryptAES(key, iv, encryptedData)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		defer WipeData(decryptedData)
+	} else {
+		decryptedData = data
+		fmt.Println("WARNING: File is unencrypted.")
+	}
+
+	serviceName, err := getInput(reader, "Enter service: ")
+	if err != nil {
+		fmt.Printf("Error getting service name: %v\n", err)
+		return
+	}
+
+	serviceName = strings.ToLower(serviceName)
+
+	identifier, err := getInput(reader, "Enter identifier: ")
+	if err != nil {
+		fmt.Printf("Error getting identifier: %v\n", err)
+		return
+	}
+
+	var services []Service
+	if len(decryptedData) > 0 {
+		err = json.Unmarshal(decryptedData, &services)
+		if err != nil {
+			fmt.Printf("Error unmarshaling data from file \"%s\": %v\n", fileName, err)
+			return
+		}
+	}
+	defer func() {
+		services = nil
+	}()
+
+	var foundService *Service
+	for i, service := range services {
+		if service.ServiceName == serviceName {
+			foundService = &services[i]
+			break
+		}
+	}
+	defer func() {
+		foundService = nil
+	}()
+
+	if foundService == nil {
+		fmt.Printf("Service \"%s\" not found. Please try again.\n", serviceName)
+		return
+	}
+
+	newCredentials := make([]Credential, 0)
+	for _, credential := range foundService.Credentials {
+		if credential.Identifier != identifier {
+			newCredentials = append(newCredentials, credential)
+		}
+	}
+
+	foundService.Credentials = newCredentials
+
+	updatedData, err := json.Marshal(services)
+	if err != nil {
+		fmt.Printf("Error marshaling data: %v\n", err)
+		return
+	}
+
+	if encyptedFlag {
+		header, err := CreateHeader(salt, iteration, keyLength, iv)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		updatedData, err = EncryptAES(key, iv, header, string(updatedData))
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+	}
+
+	err = file.Truncate(0)
+	if err != nil {
+		fmt.Printf("Error truncating file \"%s\": %v\n", fileName, err)
+		return
+	}
+
+	_, err = file.Seek(0, io.SeekStart)
+	if err != nil {
+		fmt.Printf("Error seeking start of file \"%s\": %v\n", fileName, err)
+		return
+	}
+
+	_, err = file.Write(updatedData)
+	if err != nil {
+		fmt.Printf("Error writing data to file \"%s\": %v\n", fileName, err)
+		return
+	}
+
+	fmt.Printf("Credential successfully deleted in file \"%s\".\n", fileName)
 }
 
 func choice_GetPassword() {
 	reader := bufio.NewReader(os.Stdin)
-	
+
 	fileName, err := getFileName(reader)
 	if err != nil {
 		fmt.Printf("Error getting file name: %v\n", err)
@@ -363,6 +541,8 @@ func choice_GetPassword() {
 		fmt.Printf("Error getting service name: %v\n", err)
 		return
 	}
+
+	serviceName = strings.ToLower(serviceName)
 
 	identifier, err := getInput(reader, "Enter identifier: ")
 	if err != nil {
