@@ -1,0 +1,25 @@
+version: "3.8"
+
+services:
+  server:
+    build: 
+      context: ./server
+      dockerfile: ../docker/server/Dockerfile
+    container_name: "server"
+    ports:
+      - "4090:3000"
+    volumes:
+      - ./server:/app
+    command: air run src/cmd/main.go -b 0.0.0.0
+
+  client:
+    build:
+      context: ./client
+      dockerfile: ../docker/client/Dockerfile
+    container_name: "client"
+    ports:
+      - "80:5173"
+    volumes:
+      - ./client:/app
+      - /app/node_modules 
+    command: npm run dev
