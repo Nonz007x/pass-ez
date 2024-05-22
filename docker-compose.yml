@@ -4,7 +4,7 @@ services:
   server:
     build: 
       context: ./server
-      dockerfile: ../docker/server/Dockerfile
+      dockerfile: ./Dockerfile
     container_name: "server"
     ports:
       - "4090:3000"
@@ -15,7 +15,7 @@ services:
   client:
     build:
       context: ./client
-      dockerfile: ../docker/client/Dockerfile
+      dockerfile: ./Dockerfile
     container_name: "client"
     ports:
       - "80:5173"
