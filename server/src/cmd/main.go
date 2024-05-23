@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/gofiber/fiber/v2"
 	"github.com/Nonz007x/pass-ez/src/database"
+	"github.com/gofiber/fiber/v2"
 )
 
 func main() {
@@ -11,13 +11,7 @@ func main() {
 
 	app := fiber.New()
 
-	app.Get("api/", func(c *fiber.Ctx) error {
-		return c.SendString("Hello, World")
-	})
-
-	app.Get("api/gay", func(c *fiber.Ctx) error {
-		return c.SendString("you gay")
-	})
+	setupRoutes(app)
 
 	app.Listen(":3000")
 }
