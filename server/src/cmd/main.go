@@ -1,17 +1,21 @@
 package main
 
-import "github.com/gofiber/fiber/v2"
+import (
+	"github.com/gofiber/fiber/v2"
+	"github.com/Nonz007x/pass-ez/src/database"
+)
 
 func main() {
+
+	database.ConnectDb()
+
 	app := fiber.New()
 
-	// app.Static("/", "./web/templates")
-
-	app.Get("/", func(c *fiber.Ctx) error {
+	app.Get("api/", func(c *fiber.Ctx) error {
 		return c.SendString("Hello, World")
 	})
 
-	app.Get("/gay", func(c *fiber.Ctx) error {
+	app.Get("api/gay", func(c *fiber.Ctx) error {
 		return c.SendString("you gay")
 	})
 
