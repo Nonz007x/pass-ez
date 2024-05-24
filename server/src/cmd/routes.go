@@ -13,7 +13,9 @@ func setupRoutes(app *fiber.App) {
 }
 
 func setupRoutesV1(r fiber.Router) {
-	r.Get("/home", func(c *fiber.Ctx) error {
-		return c.SendString("Home")
+	r.Get("/", func(c *fiber.Ctx) error {
+		return c.JSON(fiber.Map{
+			"hello": "greeting",
+		})
 	})
 }

@@ -3,3 +3,4 @@ dockercompose.yml
 README.md
 .gitignore
 docker
+.env.template
