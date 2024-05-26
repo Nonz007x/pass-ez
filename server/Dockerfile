@@ -8,6 +8,7 @@ RUN go mod download
 RUN go install github.com/cosmtrek/air@latest
 
 COPY . .
+COPY ../.env .
 
 EXPOSE 3000
 

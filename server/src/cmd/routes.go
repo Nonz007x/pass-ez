@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/Nonz007x/pass-ez/src/handlers"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -14,8 +15,11 @@ func setupRoutes(app *fiber.App) {
 
 func setupRoutesV1(r fiber.Router) {
 	r.Get("/", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{
-			"hello": "greeting",
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"status": "success",
+			"hello":  "greeting",
 		})
 	})
+
+	r.Post("/register", handlers.Register)
 }
