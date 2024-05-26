@@ -1,26 +1,18 @@
-import { useState } from 'react'
-import './App.css'
-import axios from 'axios'
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import Register from './pages/Register';
+import NoPage from './pages/NoPage';
+import Home from './pages/Home';
 
 function App() {
-  const [count, setCount] = useState(0)
-  const [text, setText] = useState("")
-
-  const getText = () => {
-    axios({
-      method: 'get',
-      url: 'http://localhost:4090/api/v1/',
-    })
-      .then(response => {
-        setText(response.data.hello);
-      })
-    // .then(data => setText(data))
-  }
-
   return (
     <>
-      <h1>{text}</h1>
-      <button onClick={() => getText()}>Press me!</button>
+      <Router>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="*" element={<NoPage />} />
+        </Routes>
+      </Router>
     </>
   )
 }
