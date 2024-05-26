@@ -1,6 +1,7 @@
 node_modules
-dockercompose.yml
+docker-compose.yml
+Dockerfile
 README.md
+.dockerignore
+.git
 .gitignore
-docker
-.env.template
