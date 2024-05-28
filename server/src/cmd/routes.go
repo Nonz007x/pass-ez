@@ -22,4 +22,5 @@ func setupRoutesV1(r fiber.Router) {
 	})
 
 	r.Post("/register", handlers.Register)
+	r.Post("/login", handlers.GetSalt)
 }

@@ -1,23 +1,45 @@
 package models
 
-import "gorm.io/gorm"
-
 type (
-	Fact struct {
-		gorm.Model
-		Question string `json:"question" gorm:"text;not null;default:null"`
-		Answer   string `json:"answer" gorm:"text;not null;default:null"`
-	}
 
 	User struct {
-		Id       string `gorm:"not null;unique"`
-		Email    string `gorm:"not null;unique"`
+		Id             string `gorm:"not null;unique"`
+		Email          string `gorm:"not null;unique"`
 		MasterPassword string `gorm:"not null;"`
+		Salt           string `gorm:"not null;"`
 	}
 
 	RegisterRequest struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
+		Salt     string `json:"salt"`
+		VaultKey string `json:"vault_key"`
+	}
+
+	LoginRequest struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	Vault struct {
+		Id      string `gorm:"not null;unique"`
+		Key     string `gorm:"not null;"`
+		OwnerId string `gorm:"not null;"`
+	}
+
+	SaltKey struct {
+		Salt string `json:"salt"`
+		Key string `json:"protected_key"`
+	}
+
+	UserVault struct {
+		VaultId string `gorm:"not null;"`
+		UserId  string `gorm:"not null;"`
+	}
+
+	SaltResponse struct {
+		Email   string `json:"email"`
+		Salt string `json:"salt"`
 	}
 
 	ErrorResponse struct {
@@ -26,3 +48,13 @@ type (
 		Message          string `json:"message"`
 	}
 )
+
+func (UserVault) TableName() string {
+	return "user_vault"
+}
+
+var DatabaseError = ErrorResponse{
+	Error:            "internal_server_error",
+	ErrorDescription: "database_error",
+	Message:          "something went wrong. Try again.",
+}

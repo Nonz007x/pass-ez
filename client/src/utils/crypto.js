@@ -1,28 +1,4 @@
-export const registerHandler = async (email, password) => {
-  try {
-
-    const masterKey = await deriveKey(password, email)
-
-    const hashedPassword = await deriveKey(password, masterKey)
-
-    const { salt, stretchedKey } = await generateSaltAndStretch(masterKey)
-
-    const vaultKey = generateRandomBytes(32)
-
-    const iv = generateRandomBytes(16)
-
-    const cipherText = await encryptData(stretchedKey, vaultKey, iv) 
-
-    const b64CipherText = toBase64(iv) + '|' + toBase64(cipherText)
-
-    return b64CipherText
-  } catch (error) {
-    console.error('Error registering:', error)
-    throw error
-  }
-}
-
-const encryptData = async (key, data, iv) => {
+export const encryptData = async (key, data, iv) => {
   return window.crypto.subtle.encrypt(
     {
       name: 'AES-CBC',
@@ -33,19 +9,23 @@ const encryptData = async (key, data, iv) => {
   )
 }
 
-const generateRandomBytes = (length) => {
+export const decryptData = async (key, data, iv) => {
+  return window.crypto.subtle.decrypt(
+    {
+      name: 'AES-CBC',
+      iv: iv,
+    },
+    key,
+    data
+  )
+}
+
+export const generateRandomBytes = (length) => {
   const bytes = new Uint8Array(length);
   window.crypto.getRandomValues(bytes);
   return bytes;
 }
 
-const toBase64 = (bytes) => {
-  if (bytes instanceof Uint8Array) {
-    return btoa(String.fromCharCode(...bytes))
-  } else {
-    return btoa(String.fromCharCode(...new Uint8Array(bytes)))
-  }
-}
 
 export const deriveKey = async (secret, inputSalt) => {
   const encoder = new TextEncoder()
@@ -74,9 +54,9 @@ export const deriveKey = async (secret, inputSalt) => {
   return key
 }
 
-export const generateSaltAndStretch = async (secret) => {
+export const stretchKey = async (secret, inputSalt) => {
   const encoder = new TextEncoder()
-  const salt = generateRandomBytes(16)
+  const salt = encoder.encode(inputSalt)
   const keyMaterial = await window.crypto.subtle.importKey(
     'raw',
     encoder.encode(secret),
@@ -98,10 +78,10 @@ export const generateSaltAndStretch = async (secret) => {
     ['encrypt', 'decrypt']
   )
 
-  return { salt, stretchedKey }
+  return stretchedKey
 }
 
-const exportKey = async (key) => {
+export const exportKey = async (key) => {
   const exportedKey = await window.crypto.subtle.exportKey('raw', key)
   const buffer = new Uint8Array(exportedKey)
   const base64Key = btoa(String.fromCharCode(...buffer))
