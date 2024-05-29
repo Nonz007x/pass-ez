@@ -2,9 +2,10 @@ package main
 
 import (
 	"encoding/json"
+
 	"github.com/Nonz007x/pass-ez/src/database"
+	"github.com/Nonz007x/pass-ez/src/middleware"
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
 )
 
 func main() {
@@ -16,12 +17,7 @@ func main() {
 		JSONDecoder: json.Unmarshal,
 	})
 
-	app.Use(cors.New(cors.Config{
-		AllowOrigins:     "http://localhost/",
-		AllowMethods:     "GET,POST,PUT,DELETE",
-		AllowHeaders:     "Origin, Content-Type, Accept",
-		AllowCredentials: true,
-	}))
+	app.Use(middleware.Cors())
 
 	setupRoutes(app)
 

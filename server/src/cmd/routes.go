@@ -1,8 +1,11 @@
 package main
 
 import (
-	"github.com/Nonz007x/pass-ez/src/handlers"
+	"github.com/Nonz007x/pass-ez/src/handler"
+	"github.com/Nonz007x/pass-ez/src/middleware"
 	"github.com/gofiber/fiber/v2"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 func setupRoutes(app *fiber.App) {
@@ -21,6 +24,30 @@ func setupRoutesV1(r fiber.Router) {
 		})
 	})
 
-	r.Post("/register", handlers.Register)
-	r.Post("/login", handlers.GetSalt)
+	r.Post("/register", handler.Register)
+	r.Post("/login", handler.Login)
+
+	restricted := r.Group("")
+	restricted.Use(middleware.AuthRequired())
+
+	setupRestrictedRoutesV1(restricted)
+}
+
+func setupRestrictedRoutesV1(r fiber.Router) {
+	r.Get("/restricted", func(c *fiber.Ctx) error {
+		user := c.Locals("user").(*jwt.Token)
+		claims := user.Claims.(jwt.MapClaims)
+		name := claims["name"].(string)
+		return c.SendString("Welcome " + name)
+	})
+
+	r.Get("/test", Test)
+}
+
+func Test(c *fiber.Ctx) error {
+	user := c.Locals("user").(*jwt.Token)
+	claims := user.Claims.(jwt.MapClaims)
+	sub := claims["sub"].(string)
+	exp := claims["exp"].(string)
+	return c.SendString("Welcome " + sub + " Exp: " + exp)
 }
