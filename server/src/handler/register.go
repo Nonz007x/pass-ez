@@ -39,6 +39,13 @@ func Register(c *fiber.Ctx) error {
 		})
 	}
 
+	tx := db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
 	// hash with SHA-256 and encode to base-64 string
 	bytePassword := sha256.Sum256([]byte(req.Password))
 	hashedPassword := base64.StdEncoding.EncodeToString(bytePassword[:])
@@ -51,6 +58,7 @@ func Register(c *fiber.Ctx) error {
 	}
 
 	if err := db.Create(&user).Error; err != nil {
+		tx.Rollback()
 		return c.Status(fiber.StatusInternalServerError).JSON(
 			models.ErrorResponse{
 				Error:            "internal_server_error",
@@ -67,6 +75,7 @@ func Register(c *fiber.Ctx) error {
 	}
 
 	if err := db.Create(&vault).Error; err != nil {
+		tx.Rollback()
 		return c.Status(fiber.StatusInternalServerError).JSON(
 			models.ErrorResponse{
 				Error:            "internal_server_error",
@@ -82,6 +91,7 @@ func Register(c *fiber.Ctx) error {
 	}
 
 	if err := db.Create(&userVault).Error; err != nil {
+		tx.Rollback()
 		return c.Status(fiber.StatusInternalServerError).JSON(
 			models.ErrorResponse{
 				Error:            "internal_server_error",
@@ -91,6 +101,17 @@ func Register(c *fiber.Ctx) error {
 		)
 	}
 
+	if err := tx.Commit().Error; err != nil {
+		tx.Rollback()
+		return c.Status(fiber.StatusInternalServerError).JSON(
+			models.ErrorResponse{
+				Error:            "internal_server_error",
+				ErrorDescription: "database_error",
+				Message:          "Something went wrong. Try again.",
+			},
+		)
+	}
+
 	response := "status: success"
-	return c.Status(fiber.StatusOK).JSON(response)
+	return c.Status(fiber.StatusOK).JSON(respo`nse)
 }
