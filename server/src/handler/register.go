@@ -113,5 +113,5 @@ func Register(c *fiber.Ctx) error {
 	}
 
 	response := "status: success"
-	return c.Status(fiber.StatusOK).JSON(respo`nse)
+	return c.Status(fiber.StatusOK).JSON(response)
 }
