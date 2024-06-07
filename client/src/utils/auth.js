@@ -1,5 +1,8 @@
+import { toBase64, base64ToUint8Array } from './utils'
+import { exportKey } from './crypto'
+import sendRequest from './request'
 import * as crypto from './crypto'
-import { toBase64, base64ToUint8Array, strToArrayBuffer } from './utils'
+import secureSessionStorage from './secureSessionStorage'
 import axios from 'axios'
 
 export const registerHandler = async (email, password) => {
@@ -18,17 +21,24 @@ export const registerHandler = async (email, password) => {
   const protectedKey = await crypto.encryptData(stretchedKey, vaultKey, iv)
   const b64ProtectedKey = toBase64(iv) + '|' + toBase64(protectedKey)
 
-  const response = await axios({
-    method: 'post',
-    url: 'http://localhost:4090/api/v1/register',
-    headers: {},
-    data: {
-      email: email,
-      password: b64HashedPassword,
-      salt: b64Salt,
-      vault_key: b64ProtectedKey
-    }
-  })
+  let response
+
+  try {
+    response = await sendRequest({
+      method: 'post',
+      endpoint: '/v1/register',
+      headers: {},
+      data: {
+        email: email,
+        password: b64HashedPassword,
+        salt: b64Salt,
+        vault_key: b64ProtectedKey
+      }
+    })
+  } catch (error) {
+    throw error
+  }
+
   return response
 }
 
@@ -38,30 +48,36 @@ export const loginHandler = async (email, password) => {
   const hashedPassword = await crypto.deriveKey(password, masterKey)
   const b64HashedPassword = await crypto.exportKey(hashedPassword)
 
-  let response = await axios({
-    method: 'post',
-    url: 'http://localhost:4090/api/v1/login',
-    data: {
-      email: email,
-      password: b64HashedPassword,
-    }
-  })
+  let response
 
-  const { salt, key } = response.data
+  try {
+    response = await sendRequest({
+      method: 'post',
+      endpoint: '/v1/login',
+      data: {
+        email: email,
+        password: b64HashedPassword,
+      }
+    })
+  } catch (error) {
+    throw error
+  }
+
+  const { salt, key, token } = response
   const stretchedKey = await crypto.stretchKey(masterKey, base64ToUint8Array(salt))
+  
+  const vault_key = await crypto.decryptKey(key, stretchedKey)
+  
+  try {
+    secureSessionStorage.setKeys(await exportKey(stretchedKey), toBase64(vault_key))
+  } catch (error) {
+    throw error
+  }
+  sessionStorage.setItem("refresh_token", token.refresh_token)
+  sessionStorage.setItem("access_token", token.access_token)
 
-
-  const index = key.indexOf('|')
-  const iv = key.slice(0, index)
-  const sliced_key = key.slice(index + 1)
-
-  const vault_key = await crypto.decryptData(
-    stretchedKey,
-    base64ToUint8Array(sliced_key),
-    base64ToUint8Array(iv)
-  )
-
-  // TODO 
+  
+  // TODO:
   // fetch items
   // decrypt items with vault_key
 
@@ -72,3 +88,23 @@ export const validateEmail = (email) => {
   const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
   return re.test(String(email).toLowerCase());
 };
+
+export const isAuthenticated = async () => {
+  const token = sessionStorage.getItem('access_token')
+  if (token == null) {
+    return false
+  }
+  try {
+    await sendRequest(
+      {
+        endpoint: '/v1/validate-token',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      }
+    )
+    return true
+  } catch (error) {
+    return false
+  }
+}

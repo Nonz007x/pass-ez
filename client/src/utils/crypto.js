@@ -1,3 +1,5 @@
+import { base64ToUint8Array } from "./utils"
+
 export const encryptData = async (key, data, iv) => {
   return window.crypto.subtle.encrypt(
     {
@@ -87,3 +89,40 @@ export const exportKey = async (key) => {
   const base64Key = btoa(String.fromCharCode(...buffer))
   return base64Key
 }
+
+export const decryptKey = async (key, stretchedKey) => {
+  const index = key.indexOf('|')
+  const iv = key.slice(0, index)
+  const sliced_key = key.slice(index + 1)
+
+  const vault_key = await decryptData(
+    stretchedKey,
+    base64ToUint8Array(sliced_key),
+    base64ToUint8Array(iv)
+  )
+
+  return vault_key
+}
+
+
+export const secureSessionStorage = (() => {
+  let masterKey = null
+  let userKey = null
+
+  return {
+    setKeys: (decryptedMasterKey, decryptedUserKey) => {
+      masterKey = decryptedMasterKey
+      userKey = decryptedUserKey
+    },
+    getKeys: () => {
+      if (!masterKey || !userKey) {
+        throw new Error("Keys are not available in memory")
+      }
+      return { masterKey, userKey }
+    },
+    clearKeys: () => {
+      masterKey = null
+      userKey = null
+    }
+  }
+})()
