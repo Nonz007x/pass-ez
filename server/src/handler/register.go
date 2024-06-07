@@ -15,10 +15,7 @@ func Register(c *fiber.Ctx) error {
 	var req models.RegisterRequest
 
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Cannot parse JSON",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(models.JsonParsingError)
 	}
 
 	db := database.DB.Db
@@ -26,17 +23,9 @@ func Register(c *fiber.Ctx) error {
 	var existingUser models.User
 	err := db.Where("email = ?", req.Email).First(&existingUser).Error
 	if err == nil {
-		return c.Status(fiber.StatusConflict).JSON(models.ErrorResponse{
-			Error:            "conflict",
-			ErrorDescription: "email_already_in_use",
-			Message:          "Email is already in use. Try again with a different email.",
-		})
+		return c.Status(fiber.StatusConflict).JSON(models.EmailConflictError)
 	} else if err != gorm.ErrRecordNotFound {
-		return c.Status(fiber.StatusInternalServerError).JSON(models.ErrorResponse{
-			Error:            "database_error",
-			ErrorDescription: "internal_error",
-			Message:          "Internal server error. Please try again later.",
-		})
+		return c.Status(fiber.StatusInternalServerError).JSON(models.InternalServerError)
 	}
 
 	tx := db.Begin()
@@ -59,13 +48,7 @@ func Register(c *fiber.Ctx) error {
 
 	if err := db.Create(&user).Error; err != nil {
 		tx.Rollback()
-		return c.Status(fiber.StatusInternalServerError).JSON(
-			models.ErrorResponse{
-				Error:            "internal_server_error",
-				ErrorDescription: "database_error",
-				Message:          "something went wrong. Try again.",
-			},
-		)
+		return c.Status(fiber.StatusInternalServerError).JSON(models.InternalServerError)
 	}
 
 	vault := models.Vault{
@@ -76,13 +59,7 @@ func Register(c *fiber.Ctx) error {
 
 	if err := db.Create(&vault).Error; err != nil {
 		tx.Rollback()
-		return c.Status(fiber.StatusInternalServerError).JSON(
-			models.ErrorResponse{
-				Error:            "internal_server_error",
-				ErrorDescription: "database_error",
-				Message:          "something went wrong. Try again.",
-			},
-		)
+		return c.Status(fiber.StatusInternalServerError).JSON(models.InternalServerError)
 	}
 
 	userVault := models.UserVault{
@@ -92,26 +69,13 @@ func Register(c *fiber.Ctx) error {
 
 	if err := db.Create(&userVault).Error; err != nil {
 		tx.Rollback()
-		return c.Status(fiber.StatusInternalServerError).JSON(
-			models.ErrorResponse{
-				Error:            "internal_server_error",
-				ErrorDescription: "database_error",
-				Message:          "something went wrong. Try again.",
-			},
-		)
+		return c.Status(fiber.StatusInternalServerError).JSON(models.InternalServerError)
 	}
 
 	if err := tx.Commit().Error; err != nil {
 		tx.Rollback()
-		return c.Status(fiber.StatusInternalServerError).JSON(
-			models.ErrorResponse{
-				Error:            "internal_server_error",
-				ErrorDescription: "database_error",
-				Message:          "Something went wrong. Try again.",
-			},
-		)
+		return c.Status(fiber.StatusInternalServerError).JSON(models.InternalServerError)
 	}
 
-	response := "status: success"
-	return c.Status(fiber.StatusOK).JSON(response)
+	return c.SendStatus(fiber.StatusOK)
 }
