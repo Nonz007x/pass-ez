@@ -1,20 +1,12 @@
+import { useNavigate, Navigate } from 'react-router-dom';
+import { registerHandler, validateEmail } from '../utils/auth'
 import React, { useState, useEffect } from 'react';
-import { loginHandler, registerHandler, validateEmail } from '../utils/auth'
 
 export default function Register() {
-  const [email, setEmail] = useState('');
-  const [emailError, setEmailError] = useState('');
-  const [password, setPassword] = useState('');
-
-
-  useEffect(() => {
-    // axios({
-    //   method: 'get',
-    //   url: 'http://localhost:4090/api/v1/',
-    // }).then(response => {
-    //   console.log(response.data);
-    // })
-  }, []);
+  const [email, setEmail] = useState('')
+  const [emailError, setEmailError] = useState('')
+  const [password, setPassword] = useState('')
+  const navigate = useNavigate()
 
   const handleRegister = async (e) => {
     e.preventDefault()
@@ -26,44 +18,22 @@ export default function Register() {
     setEmailError('')
     try {
       const response = await registerHandler(email, password)
-      console.log(response.data)
+      console.log(response)
+      navigate('/login');
     } catch (error) {
-      if (error.response) {
-        setEmailError(error.response.data.message)
-      } else if (error.request) {
-        console.error(error.request)
+      if (error.status == 409) {
+        setEmailError(error.data.message)
       } else {
-        console.error('Error', error.message)
+        console.log(error.message)
       }
     }
 
-  }
-
-  const handleLogin = async (e) => {
-    e.preventDefault()
-
-    if (!validateEmail(email)) {
-      setEmailError('Invalid email format.')
-      return
-    }
-
-    setEmailError('')
-    try {
-      const response = await loginHandler(email, password)
-      // console.log(response.data)
-    } catch (error) {
-      if (error.response) {
-        setEmailError(error.response.data.message)
-      } else if (error.request) {
-        console.error(error.request)
-      } else {
-        console.error('Error', error.message)
-      }
-    }
   }
 
   return (
     <>
+      <a href="/login">Login</a>
+      {/* <Navigate to="/login" replace /> */}
       <h1>Register</h1>
       <form onSubmit={handleRegister}>
         <label>Email</label><br />
@@ -81,7 +51,6 @@ export default function Register() {
         /><br />
         <button type="submit">Submit</button>
       </form>
-      <button onClick={handleLogin}>Submit</button>
     </>
   )
 }

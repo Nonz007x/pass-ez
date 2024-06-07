@@ -18,6 +18,7 @@ func main() {
 	})
 
 	app.Use(middleware.Cors())
+	app.Use(middleware.RequireJSONContentType)
 
 	setupRoutes(app)
 

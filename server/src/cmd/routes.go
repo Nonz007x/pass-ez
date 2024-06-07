@@ -5,6 +5,8 @@ import (
 	"github.com/Nonz007x/pass-ez/src/middleware"
 	"github.com/gofiber/fiber/v2"
 
+	"time"
+
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -34,20 +36,35 @@ func setupRoutesV1(r fiber.Router) {
 }
 
 func setupRestrictedRoutesV1(r fiber.Router) {
-	r.Get("/restricted", func(c *fiber.Ctx) error {
-		user := c.Locals("user").(*jwt.Token)
-		claims := user.Claims.(jwt.MapClaims)
-		name := claims["name"].(string)
-		return c.SendString("Welcome " + name)
-	})
 
 	r.Get("/test", Test)
+	r.Post("/ciphers", handler.CreateItem) // create an item
+	// r.Put("/ciphers/:id")           // edit an item
+	// r.Put("/ciphers/:id/delete") // put item into trash
+	// r.Delete("/ciphers/:id") // permanently delete an item
+	r.Get("/validate-token", middleware.ValidateToken)
+	r.Get("/sync", handler.GetItems)
 }
 
 func Test(c *fiber.Ctx) error {
-	user := c.Locals("user").(*jwt.Token)
-	claims := user.Claims.(jwt.MapClaims)
-	sub := claims["sub"].(string)
-	exp := claims["exp"].(string)
-	return c.SendString("Welcome " + sub + " Exp: " + exp)
+	userToken, ok := c.Locals("user").(*jwt.Token)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
+	}
+
+	claims, ok := userToken.Claims.(jwt.MapClaims)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
+	}
+
+	_, subOk := claims["sub"].(string)
+	exp, expOk := claims["exp"].(float64)
+	userId, userIdOk := claims["user_id"].(string)
+
+	if !subOk || !expOk || !userIdOk {
+		return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
+	}
+
+	expStr := time.Unix(int64(exp), 0).Format(time.RFC3339)
+	return c.SendString("Welcome " + userId + " Exp: " + expStr)
 }
