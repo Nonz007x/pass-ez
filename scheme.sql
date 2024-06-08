@@ -38,13 +38,14 @@ CREATE TABLE logins (
   username VARCHAR(1000),
   password VARCHAR(1000),
   password_revision_date TIMESTAMPTZ
+  CONSTRAINT fk_item FOREIGN KEY(item_id) REFERENCES items(id) ON DELETE CASCADE
 );
 
 CREATE TABLE uris (
   id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
   login_id VARCHAR(255) NOT NULL,
   uri VARCHAR(10000),
-  CONSTRAINT fk_login FOREIGN KEY(login_id) REFERENCES logins(item_id)
+  CONSTRAINT fk_login FOREIGN KEY(login_id) REFERENCES logins(item_id) ON DELETE CASCADE
 );
 
 CREATE TABLE password_history (
@@ -52,5 +53,5 @@ CREATE TABLE password_history (
   login_id VARCHAR(255) NOT NULL,
   password VARCHAR(10000),
   last_used TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_login FOREIGN KEY(login_id) REFERENCES logins(item_id)
+  CONSTRAINT fk_login FOREIGN KEY(login_id) REFERENCES logins(item_id) ON DELETE CASCADE
 );

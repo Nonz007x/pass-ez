@@ -12,12 +12,17 @@ import (
 	"gorm.io/gorm"
 )
 
+type res struct {
+	ID   string
+	Salt string
+	Key  string
+}
 func Login(c *fiber.Ctx) error {
 
-	var req models.LoginRequest
+	var req model.LoginRequest
 
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(models.JsonParsingError)
+		return c.Status(fiber.StatusBadRequest).JSON(model.JsonParsingError)
 	}
 
 	email := req.Email
@@ -26,11 +31,7 @@ func Login(c *fiber.Ctx) error {
 	bytePassword := sha256.Sum256([]byte(req.Password))
 	hashedPassword := base64.StdEncoding.EncodeToString(bytePassword[:])
 
-	var result struct {
-		Id   string
-		Salt string
-		Key  string
-	}
+	var result res
 	db := database.DB.Db
 	query := `
 		SELECT users.id, users.salt, vaults.key 
@@ -41,18 +42,18 @@ func Login(c *fiber.Ctx) error {
 	err := db.Raw(query, email, hashedPassword).Scan(&result).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return c.Status(fiber.StatusNotFound).JSON(models.UserNotFoundError)
+			return c.Status(fiber.StatusNotFound).JSON(model.UserNotFoundError)
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(models.InternalServerError)
+		return c.Status(fiber.StatusInternalServerError).JSON(model.InternalServerError)
 	}
 
 	if result.Key == "" || result.Salt == "" {
-		return c.Status(fiber.StatusNotFound).JSON(models.UserNotFoundError)
+		return c.Status(fiber.StatusNotFound).JSON(model.UserNotFoundError)
 	}
 
-	token, err := middleware.CreateToken(result.Id)
+	token, err := middleware.CreateToken(result.ID)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(models.InternalServerError)
+		return c.Status(fiber.StatusNotFound).JSON(model.InternalServerError)
 	}
 
 	response := fiber.Map{

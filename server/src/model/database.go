@@ -1,4 +1,4 @@
-package models
+package model
 
 type (
 	User struct {
@@ -21,7 +21,7 @@ type (
 
 	SaltKey struct {
 		Salt string
-		Key string
+		Key  string
 	}
 )
 

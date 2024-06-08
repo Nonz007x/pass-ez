@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	// "github.com/Nonz007x/pass-ez/src/models"
+	// "github.com/Nonz007x/pass-ez/src/model"
 	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"

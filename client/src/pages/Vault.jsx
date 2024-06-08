@@ -26,6 +26,23 @@ export default function Vault() {
     secureSessionStorage.clearKeys();
   }
 
+  const handleDisplay = async () => {
+    try {
+      const response = await sendRequest(
+        {
+          method: 'get',
+          endpoint: '/v1/sync',
+          headers: {
+            Authorization: `Bearer ${sessionStorage.getItem('access_token')}`,
+          },
+        }
+      )
+      console.log(response)
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
   useEffect(() => {
     const setThing = async () => {
       let response
@@ -67,12 +84,13 @@ export default function Vault() {
 
   return (
     <>
-    <a href="" onClick={handleLogout}>Logout</a>
+      <a href="" onClick={handleLogout}>Logout</a>
       <h2>{test}</h2>
       <div>Vault</div>
       <form onSubmit={handleCreateItem}>
         <button type='submit'>create</button>
       </form>
+      <button onClick={handleDisplay}>display</button>
     </>
   )
 }

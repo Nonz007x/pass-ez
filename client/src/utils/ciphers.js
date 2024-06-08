@@ -11,8 +11,8 @@ export const createItem = async () => {
         'Content-Type': 'application/json',
       },
       data: {
-        vault_id: '044c35e9-6903-4df7-809d-7d128d1d414e',
-        name: "gayer",
+        vault_id: '9c9eedc7-0bc3-4659-b7c9-4852c091a49d',
+        name: "cunny",
         note: "note test",
         type: 1
       }

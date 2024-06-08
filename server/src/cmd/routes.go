@@ -43,7 +43,7 @@ func setupRestrictedRoutesV1(r fiber.Router) {
 	// r.Put("/ciphers/:id/delete") // put item into trash
 	// r.Delete("/ciphers/:id") // permanently delete an item
 	r.Get("/validate-token", middleware.ValidateToken)
-	r.Get("/sync", handler.GetItems)
+	r.Get("/sync", handler.Sync)
 }
 
 func Test(c *fiber.Ctx) error {
