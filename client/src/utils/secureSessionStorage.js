@@ -28,9 +28,5 @@ class SecureSessionStorage {
 
 const secureSessionStorage = new SecureSessionStorage()
 // Object.freeze(secureSessionStorage)
-window.addEventListener('beforeunload', () => {
-  secureSessionStorage.clearKeys();
-  sessionStorage.clear();
-});
 
 export default secureSessionStorage

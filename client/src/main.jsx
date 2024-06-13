@@ -5,7 +5,7 @@ import ClearSessionOnRefresh from './components/ClearSessionOnRefresh/ClearSessi
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <ClearSessionOnRefresh />
+    {/* <ClearSessionOnRefresh /> */}
     <App />
   </React.StrictMode>,
 )

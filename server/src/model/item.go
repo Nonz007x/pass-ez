@@ -21,7 +21,7 @@ type (
 		Password             string            `gorm:"type:varchar(1000)" json:"password"`
 		PasswordRevisionDate time.Time         `gorm:"type:timestamptz" json:"password_revision_date"`
 		PasswordHistories    []PasswordHistory `gorm:"foreignKey:LoginID" json:"password_histories"`
-		Uris                 []Uri             `gorm:"foreignKey:LoginID" json:"uris"`
+		URIs                 []URI             `gorm:"foreignKey:LoginID" json:"uris"`
 	}
 
 	PasswordHistory struct {
@@ -31,9 +31,9 @@ type (
 		LastUsed time.Time `gorm:"type:timestamptz;not null;default:CURRENT_TIMESTAMP" json:"last_used"`
 	}
 
-	Uri struct {
+	URI struct {
 		ID      int64  `gorm:"primaryKey;autoIncrement" json:"id"`
 		LoginID string `gorm:"type:varchar(255);not null" json:"login_id"`
-		Uri     string `gorm:"type:varchar(10000)" json:"uri"`
+		URI     string `gorm:"type:varchar(10000)" json:"uri"`
 	}
 )

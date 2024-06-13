@@ -32,8 +32,14 @@ var (
 	}
 
 	InvalidTokenError = ErrorResponse{
-		Error:            "403",
+		Error:            "401",
 		ErrorDescription: "invalid_token",
+		Message:          "Unauthorized",
+	}
+
+	TokenExpiredError = ErrorResponse{
+		Error:            "401",
+		ErrorDescription: "token_expired",
 		Message:          "Unauthorized",
 	}
 )
